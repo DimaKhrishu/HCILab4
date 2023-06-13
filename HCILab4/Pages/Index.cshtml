@@ -1,0 +1,215 @@
+﻿@page
+@model IndexModel
+@{
+    ViewData["Title"] = "Lab Work";
+    Layout = "_Layout";
+}
+
+<div>
+    <h1>Lab Work</h1>
+    <div>
+        <h3>Drawing Tool</h3>
+        <div>
+            <label for="shape">Drawing Shape:</label>
+            <select id="shape" onchange="onShapeChange()">
+                <option value="circle">Circle</option>
+                <option value="square">Square</option>
+                <option value="triangle">Triangle</option>
+                <option value="myFigure">My Figure</option>
+            </select>
+        </div>
+        <div>
+            <label for="color">Colour:</label>
+            <select id="color">
+                <option value="red">Red</option>
+                <option value="blue">Blue</option>
+                <option value="green">Green</option>
+            </select>
+        </div>
+        <div>
+            <label for="lineType">Line Type:</label>
+            <select id="lineType">
+                <option value="thin">Thin</option>
+                <option value="thick">Thick</option>
+            </select>
+        </div>
+    </div>
+    <div>
+        <h3>Show Shape</h3>
+        <div id="showShape"></div>
+        <button onclick="showShape()">Show Shape</button>
+    </div>
+    <div>
+        <h3>Sound Options</h3>
+        <div>
+            <label for="volume">Volume:</label>
+            <input type="range" id="volume" min="0" max="1" step="0.1" value="0.5" onchange="updateVolume()" />
+        </div>
+        <div>
+            <label for="speed">Speed:</label>
+            <select id="speed" onchange="updateSpeed()">
+                <option value="0.5">0.5x</option>
+                <option value="1">1x</option>
+                <option value="1.5">1.5x</option>
+                <option value="2">2x</option>
+            </select>
+        </div>
+        <div>
+            <label for="audioElement">Choose Audio File:</label>
+            <input type="file" id="audioElement" accept="audio/*" />
+        </div>
+        <div>
+            <span id="audioName"></span>
+        </div>
+        <div>
+            <button id="startButton" onclick="togglePlayback()">Start</button>
+        </div>
+    </div>
+    <div>
+        <button onclick="exit()">Exit</button>
+    </div>
+</div>
+<script src="https://aframe.io/releases/1.2.0/aframe.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.134.0/examples/js/controls/OrbitControls.js"></script>
+
+@section Scripts {
+    <script>
+        var audioElement = document.getElementById('audioElement');
+        var startButton = document.getElementById('startButton');
+        var volumeSlider = document.getElementById('volume');
+        var speedSelect = document.getElementById('speed');
+        var audioName = document.getElementById('audioName');
+        var isPlaying = false;
+        var audioSource = null;
+        var audioContext = null;
+        var audioSourceNode = null;
+
+        function onShapeChange() {
+            var shape = document.getElementById('shape').value;
+            var drawingShape = document.getElementById('drawingShape');
+            if (shape === 'myFigure') {
+                drawingShape.disabled = true;
+            } else {
+                drawingShape.disabled = false;
+            }
+        }
+
+        function showShape() {
+            var shape = document.getElementById('shape').value;
+            var color = document.getElementById('color').value;
+            var lineType = document.getElementById('lineType').value;
+            var showShapeDiv = document.getElementById('showShape');
+
+            if (shape === 'circle') {
+                showShapeDiv.innerHTML = `<div style="background-color: ${color}; width: 100px; height: 100px; border-radius: 50%; border: ${lineType === 'thin' ? '1px' : '3px'} solid;"></div>`;
+            } else if (shape === 'square') {
+                showShapeDiv.innerHTML = `<div style="background-color: ${color}; width: 100px; height: 100px; border: ${lineType === 'thin' ? '1px' : '3px'} solid;"></div>`;
+            } else if (shape === 'triangle') {
+                var strokeColor = lineType === 'thin' ? 'black' : 'black';
+                var strokeWidth = lineType === 'thin' ? '1' : '3';
+                var points = lineType === 'thin' ? "50,0 0,100 100,100" : "48,2 2,98 98,98";
+
+                showShapeDiv.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100">
+                                <polygon points="${points}" style="fill:${color}; stroke:${strokeColor}; stroke-width:${strokeWidth}" />
+                             </svg>`;
+            } else if (shape === 'myFigure') {
+                showShapeDiv.innerHTML = `<a-scene>
+                                <a-entity position="0 0.5 0" rotation="-90 0 0">
+                                  <a-cylinder height="1" radius="1" color="${color}" segments-radial="3"></a-cylinder>
+                                  <a-cylinder height="1" radius="1" color="${color}" segments-radial="3" position="0 1 0"></a-cylinder>
+                                  <a-cylinder height="1" radius="1" color="${color}" segments-radial="3" position="0 2 0"></a-cylinder>
+                                </a-entity>
+                                <a-camera position="0 1.5 3" look-controls="enabled: true" orbit-controls="target: 0.5 1.5 0"></a-camera>
+                              </a-scene>`;
+            }
+        }
+
+        function handleFileSelection(event) {
+            audioSource = event.target.files[0];
+            audioName.textContent = audioSource.name;
+            startButton.disabled = false;
+        }
+
+        function togglePlayback() {
+            if (isPlaying) {
+                stopAudio();
+            } else {
+                startAudio();
+            }
+        }
+
+        function updateVolume() {
+            var selectedVolume = volumeSlider.value;
+            if (audioSourceNode) {
+                audioSourceNode.gain.setValueAtTime(selectedVolume, audioContext.currentTime);
+            }
+        }
+
+        function updateSpeed() {
+            var selectedSpeed = speedSelect.value;
+            if (audioSourceNode) {
+                audioSourceNode.playbackRate.setValueAtTime(selectedSpeed, audioContext.currentTime);
+            }
+        }
+
+       function startAudio() {
+  if (!audioSource) {
+    return;
+  }
+
+  isPlaying = true;
+  startButton.innerHTML = 'Stop';
+
+  audioContext = new AudioContext();
+  var fileReader = new FileReader();
+
+  fileReader.onload = function (e) {
+    audioContext.decodeAudioData(e.target.result, function (buffer) {
+      audioSourceNode = audioContext.createBufferSource();
+      audioSourceNode.buffer = buffer;
+
+      var gainNode = audioContext.createGain();
+      var selectedVolume = volumeSlider.value;
+      var volumePercentage = selectedVolume * 100;
+      gainNode.gain.value = selectedVolume;
+
+      var selectedSpeed = speedSelect.value;
+      audioSourceNode.playbackRate.setValueAtTime(selectedSpeed, audioContext.currentTime);
+
+      audioSourceNode.connect(gainNode).connect(audioContext.destination);
+      audioSourceNode.start(0);
+      audioSourceNode.onended = function () {
+        stopAudio();
+      };
+    });
+  };
+
+  fileReader.readAsArrayBuffer(audioSource);
+}
+
+
+
+
+        function stopAudio() {
+            if (audioSourceNode) {
+                audioSourceNode.stop();
+                audioSourceNode.disconnect();
+                audioSourceNode = null;
+            }
+
+            if (audioContext) {
+                audioContext.close();
+                audioContext = null;
+            }
+
+            isPlaying = false;
+            startButton.innerHTML = 'Start';
+        }
+
+        function exit() {
+            window.close();
+        }
+
+        document.getElementById('audioElement').addEventListener('change', handleFileSelection);
+    </script>
+}

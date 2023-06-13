@@ -1,0 +1,25 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+    <meta name="viewport" content="width=device-width" />
+    <title>@ViewData["Title"] - Execution Order</title>
+    <link rel="stylesheet" href="~/css/site.css" />
+    @RenderSection("styles", required: false)
+</head>
+<body>
+    <header>
+        
+    </header>
+    <div class="container">
+        <main role="main">
+            @RenderBody()
+        </main>
+    </div>
+    <footer>
+        <p>&copy; @DateTime.Now.Year</p>
+    </footer>
+
+    <script src="~/js/site.js" asp-append-version="true"></script>
+    @RenderSection("scripts", required: false)
+</body>
+</html>
